@@ -86,7 +86,7 @@ export default function SignUpPage() {
     } else {
       toast({
         title: "Account created successfully",
-        description: "Your account and profile has been created successfully.",
+        description: "Check your inbox for confirmation email",
       })
       router.push('/')
     }
