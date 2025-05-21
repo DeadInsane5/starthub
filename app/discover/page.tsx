@@ -6,90 +6,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Search, Filter, ArrowUpRight } from "lucide-react"
 
-export default function DiscoverPage() {
-  // Mock data for startups
-  const startups = [
-    {
-      id: 1,
-      name: "TechInnovate",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "AI-powered analytics platform for business intelligence",
-      category: "AI & Machine Learning",
-      stage: "Seed",
-      location: "San Francisco, CA",
-      tags: ["AI", "Analytics", "SaaS"],
-    },
-    {
-      id: 2,
-      name: "GreenEnergy",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Sustainable energy solutions for residential buildings",
-      category: "CleanTech",
-      stage: "Series A",
-      location: "Austin, TX",
-      tags: ["Renewable", "Energy", "Sustainability"],
-    },
-    {
-      id: 3,
-      name: "HealthTrack",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Remote patient monitoring and healthcare analytics",
-      category: "HealthTech",
-      stage: "Series B",
-      location: "Boston, MA",
-      tags: ["Healthcare", "IoT", "Analytics"],
-    },
-    {
-      id: 4,
-      name: "FinanceFlow",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Automated financial planning and investment platform",
-      category: "FinTech",
-      stage: "Seed",
-      location: "New York, NY",
-      tags: ["Finance", "Automation", "Investing"],
-    },
-    {
-      id: 5,
-      name: "EduLearn",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Personalized learning platform for K-12 students",
-      category: "EdTech",
-      stage: "Series A",
-      location: "Chicago, IL",
-      tags: ["Education", "AI", "Learning"],
-    },
-    {
-      id: 6,
-      name: "LogisticsPlus",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Supply chain optimization using blockchain technology",
-      category: "Logistics",
-      stage: "Seed",
-      location: "Seattle, WA",
-      tags: ["Blockchain", "Supply Chain", "Logistics"],
-    },
-    {
-      id: 7,
-      name: "RetailAI",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "AI-powered inventory management for retail businesses",
-      category: "Retail",
-      stage: "Series A",
-      location: "Los Angeles, CA",
-      tags: ["Retail", "AI", "Inventory"],
-    },
-    {
-      id: 8,
-      name: "SecureCloud",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Zero-trust security solutions for enterprise cloud",
-      category: "Cybersecurity",
-      stage: "Series B",
-      location: "Denver, CO",
-      tags: ["Security", "Cloud", "Enterprise"],
-    },
-  ]
+import { createClient } from '@/lib/supabase/server'
+
+export default async function DiscoverPage() {
+  const supabase = await createClient();
+  const { data: startups, error: fetchError } = await supabase.from('startups').select('*').order('created_at', { ascending: false });
+
+  if (fetchError) {
+    console.log('error fetching startups', fetchError);
+  }
 
   return (
     <div className="container py-10">
@@ -143,7 +68,7 @@ export default function DiscoverPage() {
 
         {/* Startups Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {startups.map((startup) => (
+          {startups?.map((startup: any) => (
             <Card key={startup.id} className="overflow-hidden">
               <CardHeader className="p-0">
                 <div className="bg-muted/50 p-6">
@@ -171,7 +96,7 @@ export default function DiscoverPage() {
                     <span className="text-muted-foreground">{startup.location}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {startup.tags.map((tag) => (
+                    {startup.tags.map((tag: any) => (
                       <Badge key={tag} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
