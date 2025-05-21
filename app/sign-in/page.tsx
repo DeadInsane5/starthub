@@ -4,12 +4,16 @@ import { useState } from "react"
 import Link from "next/link"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowRight } from "lucide-react"
+
+import { createClient } from '@/lib/supabase/client'
 
 const formSchema = z.object({
   email: z.string().email({
@@ -23,6 +27,8 @@ const formSchema = z.object({
 
 export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast();
+  const router = useRouter()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -33,13 +39,29 @@ export default function SignInPage() {
     },
   })
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
-    // This would normally be a server action or API call
-    setTimeout(() => {
-      console.log(values)
-      setIsLoading(false)
-    }, 1000)
+
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
+    });
+
+    if (signInError) {
+      toast({
+        title: "Error signing in",
+        description: "Please check email and password, and try again.",
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Signed in successfully",
+      })
+      router.push('/')
+    }
+    router.push('/')
+    setIsLoading(false)
   }
 
   return (
