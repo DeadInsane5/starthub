@@ -11,6 +11,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowRight } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 
 const formSchema = z
   .object({
@@ -38,6 +41,9 @@ const formSchema = z
 
 export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
+  const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null)
+  const { toast } = useToast()
+  const router = useRouter()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,13 +56,42 @@ export default function SignUpPage() {
     },
   })
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
-    // This would normally be a server action or API call
-    setTimeout(() => {
-      console.log(values)
-      setIsLoading(false)
-    }, 1000)
+    setMessage(null)
+
+    const supabase = createClient()
+    const { error: accountError } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
+      options: {
+        data: {
+          name: values.name,
+          userType: values.userType,
+        },
+      },
+    })
+    const { error: insertError } = await supabase.from("users").insert({
+      name: values.name,
+      email: values.email,
+      userType: values.userType,
+    })
+
+    if (accountError || insertError) {
+      toast({
+        title: "Error creating account",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Account created successfully",
+        description: "Your account and profile has been created successfully.",
+      })
+      router.push('/')
+    }
+
+    setIsLoading(false)
   }
 
   return (
@@ -169,7 +204,7 @@ export default function SignUpPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading} onClick={() => { }}>
                 {isLoading ? (
                   <div className="flex items-center justify-center">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -184,6 +219,11 @@ export default function SignUpPage() {
               </Button>
             </form>
           </Form>
+          {message && (
+            <div className={`mt-4 text-center text-sm ${message.isError ? 'text-red-500' : 'text-green-500'}`}>
+              {message.text}
+            </div>
+          )}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
