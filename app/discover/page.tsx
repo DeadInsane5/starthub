@@ -1,20 +1,58 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Search, Filter, ArrowUpRight } from "lucide-react"
+import { createClient } from '@/lib/supabase/client'
 
-import { createClient } from '@/lib/supabase/server'
+export default function DiscoverPage() {
+  const [startups, setStartups] = useState<any[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [selectedStage, setSelectedStage] = useState("all")
 
-export default async function DiscoverPage() {
-  const supabase = await createClient();
-  const { data: startups, error: fetchError } = await supabase.from('startups').select('*').order('created_at', { ascending: false });
+  useEffect(() => {
+    const fetchStartups = async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('startups')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-  if (fetchError) {
-    console.log('error fetching startups', fetchError);
-  }
+      if (error) {
+        console.error('error fetching startups', error)
+      } else {
+        setStartups(data || [])
+      }
+    }
+
+    fetchStartups()
+  }, [])
+
+  const filteredStartups = startups.filter(startup => {
+    const matchesSearch = startup.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = selectedCategory === "all" || startup.category === selectedCategory
+    const matchesStage = selectedStage === "all" || startup.stage === selectedStage
+    return matchesSearch && matchesCategory && matchesStage
+  })
 
   return (
     <div className="container py-10">
@@ -30,33 +68,39 @@ export default async function DiscoverPage() {
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:space-x-4 md:space-y-0">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search startups..." className="pl-8" />
+            <Input
+              type="search"
+              placeholder="Search startups..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
           <div className="flex items-center space-x-2">
-            <Select defaultValue="all">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="ai">AI & Machine Learning</SelectItem>
-                <SelectItem value="cleantech">CleanTech</SelectItem>
-                <SelectItem value="healthtech">HealthTech</SelectItem>
-                <SelectItem value="fintech">FinTech</SelectItem>
-                <SelectItem value="edtech">EdTech</SelectItem>
+                <SelectItem value="AI & Machine Learning">AI & Machine Learning</SelectItem>
+                <SelectItem value="CleanTech">CleanTech</SelectItem>
+                <SelectItem value="HealthTech">HealthTech</SelectItem>
+                <SelectItem value="FinTech">FinTech</SelectItem>
+                <SelectItem value="EdTech">EdTech</SelectItem>
               </SelectContent>
             </Select>
-            <Select defaultValue="all">
+            <Select value={selectedStage} onValueChange={setSelectedStage}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Stage" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Stages</SelectItem>
-                <SelectItem value="idea">Idea</SelectItem>
-                <SelectItem value="mvp">MVP</SelectItem>
-                <SelectItem value="seed">Seed</SelectItem>
-                <SelectItem value="seriesa">Series A</SelectItem>
-                <SelectItem value="seriesb">Series B+</SelectItem>
+                <SelectItem value="Idea">Idea</SelectItem>
+                <SelectItem value="MVP">MVP</SelectItem>
+                <SelectItem value="Seed">Seed</SelectItem>
+                <SelectItem value="Series A">Series A</SelectItem>
+                <SelectItem value="Series B">Series B+</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon">
@@ -68,7 +112,7 @@ export default async function DiscoverPage() {
 
         {/* Startups Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {startups?.map((startup: any) => (
+          {filteredStartups.map((startup: any) => (
             <Card key={startup.id} className="overflow-hidden">
               <CardHeader className="p-0">
                 <div className="bg-muted/50 p-6">
@@ -119,7 +163,7 @@ export default async function DiscoverPage() {
           ))}
         </div>
 
-        {/* Pagination */}
+        {/* Pagination (Static Placeholder) */}
         <div className="flex items-center justify-center space-x-2 py-4">
           <Button variant="outline" size="sm" disabled>
             Previous
@@ -147,3 +191,4 @@ export default async function DiscoverPage() {
     </div>
   )
 }
+
