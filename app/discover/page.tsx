@@ -4,26 +4,24 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Search, Filter, ArrowUpRight } from "lucide-react"
 import { createClient } from '@/lib/supabase/client'
 
 export default function DiscoverPage() {
+  interface startup {
+    id: string,
+    name: string,
+    logo: string,
+    description: string,
+    category: string,
+    stage: string,
+    location: string,
+    tags: string[]
+  }
+
   const [startups, setStartups] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -112,7 +110,7 @@ export default function DiscoverPage() {
 
         {/* Startups Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredStartups.map((startup: any) => (
+          {filteredStartups.map((startup: startup) => (
             <Card key={startup.id} className="overflow-hidden">
               <CardHeader className="p-0">
                 <div className="bg-muted/50 p-6">

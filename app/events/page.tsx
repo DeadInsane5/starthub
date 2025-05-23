@@ -1,3 +1,6 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -6,121 +9,64 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Clock, MapPin, Users, Search, Filter, ArrowUpRight, CalendarDays } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+
+interface Event {
+  id: string
+  title: string
+  image: string | null
+  description: string
+  date: string
+  time: string
+  location: string
+  type: string
+  category: string
+  attendees: number
+  organizer: string
+}
 
 export default function EventsPage() {
-  // Mock data for events
-  const events = [
-    {
-      id: 1,
-      title: "Startup Pitch Night",
-      image: "/placeholder.svg?height=200&width=400",
-      description: "Join us for an evening of innovative startup pitches and networking opportunities.",
-      date: "May 25, 2025",
-      time: "7:00 PM - 9:00 PM",
-      location: "San Francisco, CA",
-      type: "In-Person",
-      category: "Networking",
-      attendees: 120,
-      organizer: "StartHub",
-    },
-    {
-      id: 2,
-      title: "Fundraising Workshop",
-      image: "/placeholder.svg?height=200&width=400",
-      description: "Learn effective strategies for raising capital from experienced investors and founders.",
-      date: "May 28, 2025",
-      time: "1:00 PM - 3:00 PM",
-      location: "Virtual",
-      type: "Online",
-      category: "Workshop",
-      attendees: 250,
-      organizer: "Venture Capital Partners",
-    },
-    {
-      id: 3,
-      title: "Product Development Masterclass",
-      image: "/placeholder.svg?height=200&width=400",
-      description: "A comprehensive masterclass on building products that customers love.",
-      date: "June 5, 2025",
-      time: "10:00 AM - 4:00 PM",
-      location: "New York, NY",
-      type: "In-Person",
-      category: "Masterclass",
-      attendees: 75,
-      organizer: "Product School",
-    },
-    {
-      id: 4,
-      title: "AI in Startups Conference",
-      image: "/placeholder.svg?height=200&width=400",
-      description: "Explore how artificial intelligence is transforming the startup ecosystem.",
-      date: "June 10-12, 2025",
-      time: "9:00 AM - 5:00 PM",
-      location: "Austin, TX",
-      type: "In-Person",
-      category: "Conference",
-      attendees: 500,
-      organizer: "TechInnovate",
-    },
-    {
-      id: 5,
-      title: "Founder Fireside Chat",
-      image: "/placeholder.svg?height=200&width=400",
-      description: "An intimate conversation with successful founders about their entrepreneurial journey.",
-      date: "June 15, 2025",
-      time: "6:00 PM - 8:00 PM",
-      location: "Virtual",
-      type: "Online",
-      category: "Fireside Chat",
-      attendees: 300,
-      organizer: "StartHub",
-    },
-    {
-      id: 6,
-      title: "Growth Marketing Summit",
-      image: "/placeholder.svg?height=200&width=400",
-      description: "Discover cutting-edge marketing strategies to accelerate your startup's growth.",
-      date: "June 20, 2025",
-      time: "9:00 AM - 6:00 PM",
-      location: "Chicago, IL",
-      type: "In-Person",
-      category: "Summit",
-      attendees: 350,
-      organizer: "Growth Hackers",
-    },
-    {
-      id: 7,
-      title: "Investor Office Hours",
-      image: "/placeholder.svg?height=200&width=400",
-      description: "One-on-one meetings with investors to discuss your startup and get feedback.",
-      date: "June 25, 2025",
-      time: "10:00 AM - 4:00 PM",
-      location: "Virtual",
-      type: "Online",
-      category: "Mentorship",
-      attendees: 50,
-      organizer: "Tech Angels Network",
-    },
-    {
-      id: 8,
-      title: "Startup Legal Workshop",
-      image: "/placeholder.svg?height=200&width=400",
-      description: "Essential legal knowledge for founders, covering incorporation, IP, and contracts.",
-      date: "July 2, 2025",
-      time: "1:00 PM - 4:00 PM",
-      location: "Boston, MA",
-      type: "In-Person",
-      category: "Workshop",
-      attendees: 80,
-      organizer: "Startup Lawyers",
-    },
-  ]
+  const [events, setEvents] = useState<Event[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedType, setSelectedType] = useState("all")
+  const [selectedCategory, setSelectedCategory] = useState("all")
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching events:', error.message)
+      } else {
+        setEvents(data || [])
+      }
+    }
+
+    fetchEvents()
+  }, [])
+
+  const filteredEvents = events.filter(event => {
+    const matchesSearch =
+      event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesType = selectedType === "all" || event.type.toLowerCase() === selectedType.toLowerCase()
+    const matchesCategory = selectedCategory === "all" || event.category.toLowerCase() === selectedCategory.toLowerCase()
+    return matchesSearch && matchesType && matchesCategory
+  })
 
   // Get upcoming events (events with dates in the future)
-  const upcomingEvents = events.slice(0, 4) // For demo purposes, just take the first 4
+  const upcomingEvents = filteredEvents
+    .filter(event => new Date(event.date) >= new Date('2025-05-23'))
+    .slice(0, 4)
 
-  // Get featured events (could be based on various criteria)
-  const featuredEvents = events.filter((_, index) => index % 3 === 0) // For demo purposes, every 3rd event
+  // Get featured events (based on attendees, for example)
+  const featuredEvents = filteredEvents
+    .sort((a, b) => b.attendees - a.attendees)
+    .slice(0, 3)
 
   return (
     <div className="container py-10">
@@ -133,76 +79,86 @@ export default function EventsPage() {
         </div>
 
         {/* Featured Event */}
-        <div className="relative overflow-hidden rounded-lg border">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="relative aspect-video md:aspect-auto">
-              <Image
-                src="/placeholder.svg?height=400&width=600&text=Featured+Event"
-                alt="Featured Event"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="flex flex-col justify-center p-6">
-              <Badge className="w-fit mb-2">{events[0].type}</Badge>
-              <h2 className="text-2xl font-bold mb-2">{events[0].title}</h2>
-              <p className="text-muted-foreground mb-4">{events[0].description}</p>
-              <div className="grid gap-2 mb-6">
-                <div className="flex items-center text-sm">
-                  <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <span>{events[0].date}</span>
-                </div>
-                <div className="flex items-center text-sm">
-                  <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <span>{events[0].time}</span>
-                </div>
-                <div className="flex items-center text-sm">
-                  <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <span>{events[0].location}</span>
-                </div>
-                <div className="flex items-center text-sm">
-                  <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <span>{events[0].attendees} attendees</span>
-                </div>
+        {filteredEvents.length > 0 && (
+          <div className="relative overflow-hidden rounded-lg border">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="relative aspect-video md:aspect-auto">
+                <Image
+                  src={filteredEvents[0].image || "/placeholder.svg?height=400&width=600&text=Featured+Event"}
+                  alt="Featured Event"
+                  fill
+                  className="object-cover"
+                />
               </div>
-              <div className="flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
-                <Button className="w-full sm:w-auto">Register Now</Button>
-                <Button variant="outline" className="w-full sm:w-auto">
-                  Add to Calendar
-                </Button>
+              <div className="flex flex-col justify-center p-6">
+                <Badge className="w-fit mb-2">{filteredEvents[0].type}</Badge>
+                <h2 className="text-2xl font-bold mb-2">{filteredEvents[0].title}</h2>
+                <p className="text-muted-foreground mb-4">{filteredEvents[0].description}</p>
+                <div className="grid gap-2 mb-6">
+                  <div className="flex items-center text-sm">
+                    <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span>{filteredEvents[0].date}</span>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span>{filteredEvents[0].time}</span>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span>{filteredEvents[0].location}</span>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span>{filteredEvents[0].attendees} attendees</span>
+                  </div>
+                </div>
+                <div className="flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
+                  <Button className="w-full sm:w-auto">Register Now</Button>
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    Add to Calendar
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Search and Filter */}
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:space-x-4 md:space-y-0">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search events..." className="pl-8" />
+            <Input
+              type="search"
+              placeholder="Search events..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
           <div className="flex items-center space-x-2">
-            <Select defaultValue="all">
+            <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Event Type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="in-person">In-Person</SelectItem>
-                <SelectItem value="online">Online</SelectItem>
+                <SelectItem value="In-Person">In-Person</SelectItem>
+                <SelectItem value="Online">Online</SelectItem>
               </SelectContent>
             </Select>
-            <Select defaultValue="all">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="networking">Networking</SelectItem>
-                <SelectItem value="workshop">Workshop</SelectItem>
-                <SelectItem value="conference">Conference</SelectItem>
-                <SelectItem value="summit">Summit</SelectItem>
-                <SelectItem value="masterclass">Masterclass</SelectItem>
+                <SelectItem value="Networking">Networking</SelectItem>
+                <SelectItem value="Workshop">Workshop</SelectItem>
+                <SelectItem value="Conference">Conference</SelectItem>
+                <SelectItem value="Summit">Summit</SelectItem>
+                <SelectItem value="Masterclass">Masterclass</SelectItem>
+                <SelectItem value="Fireside Chat">Fireside Chat</SelectItem>
+                <SelectItem value="Mentorship">Mentorship</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon">
@@ -223,7 +179,7 @@ export default function EventsPage() {
           {/* All Events Tab */}
           <TabsContent value="all" className="mt-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {events.map((event) => (
+              {filteredEvents.map((event) => (
                 <Card key={event.id} className="overflow-hidden">
                   <div className="relative aspect-video">
                     <Image src={event.image || "/placeholder.svg"} alt={event.title} fill className="object-cover" />

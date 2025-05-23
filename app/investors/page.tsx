@@ -1,3 +1,6 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -6,123 +9,51 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Filter, ArrowUpRight } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 export default function InvestorsPage() {
-  // Mock data for investors
-  const investors = [
-    {
-      id: 1,
-      name: "Venture Capital Partners",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Early-stage venture capital firm focused on technology startups",
-      type: "VC Firm",
-      investmentRange: "$500K - $5M",
-      location: "San Francisco, CA",
-      interests: ["AI", "SaaS", "FinTech"],
-      partners: [
-        { name: "Sarah Johnson", avatar: "/placeholder.svg?height=40&width=40" },
-        { name: "Michael Chen", avatar: "/placeholder.svg?height=40&width=40" },
-      ],
-    },
-    {
-      id: 2,
-      name: "Growth Equity Fund",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Growth-stage investment firm specializing in scaling businesses",
-      type: "Private Equity",
-      investmentRange: "$5M - $20M",
-      location: "New York, NY",
-      interests: ["HealthTech", "EdTech", "Enterprise"],
-      partners: [
-        { name: "David Wilson", avatar: "/placeholder.svg?height=40&width=40" },
-        { name: "Emily Rodriguez", avatar: "/placeholder.svg?height=40&width=40" },
-      ],
-    },
-    {
-      id: 3,
-      name: "Tech Angels Network",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Angel investor network focused on early-stage tech startups",
-      type: "Angel Network",
-      investmentRange: "$50K - $500K",
-      location: "Austin, TX",
-      interests: ["Consumer Apps", "Marketplaces", "Web3"],
-      partners: [
-        { name: "Robert Kim", avatar: "/placeholder.svg?height=40&width=40" },
-        { name: "Jessica Lee", avatar: "/placeholder.svg?height=40&width=40" },
-      ],
-    },
-    {
-      id: 4,
-      name: "Impact Ventures",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Investing in startups with positive social and environmental impact",
-      type: "Impact Fund",
-      investmentRange: "$250K - $2M",
-      location: "Boston, MA",
-      interests: ["CleanTech", "Sustainability", "HealthTech"],
-      partners: [
-        { name: "Thomas Green", avatar: "/placeholder.svg?height=40&width=40" },
-        { name: "Sophia Martinez", avatar: "/placeholder.svg?height=40&width=40" },
-      ],
-    },
-    {
-      id: 5,
-      name: "Seed Capital Group",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Seed-stage investment firm for innovative technology startups",
-      type: "Seed Fund",
-      investmentRange: "$100K - $1M",
-      location: "Seattle, WA",
-      interests: ["AI", "Developer Tools", "Cybersecurity"],
-      partners: [
-        { name: "Alex Thompson", avatar: "/placeholder.svg?height=40&width=40" },
-        { name: "Olivia Wang", avatar: "/placeholder.svg?height=40&width=40" },
-      ],
-    },
-    {
-      id: 6,
-      name: "Global Ventures",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "International investment firm with a focus on global expansion",
-      type: "VC Firm",
-      investmentRange: "$1M - $10M",
-      location: "London, UK",
-      interests: ["FinTech", "E-commerce", "Logistics"],
-      partners: [
-        { name: "James Wilson", avatar: "/placeholder.svg?height=40&width=40" },
-        { name: "Amelia Patel", avatar: "/placeholder.svg?height=40&width=40" },
-      ],
-    },
-    {
-      id: 7,
-      name: "Future Fund",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Investing in frontier technologies shaping the future",
-      type: "VC Firm",
-      investmentRange: "$500K - $5M",
-      location: "Los Angeles, CA",
-      interests: ["Robotics", "Space Tech", "Biotech"],
-      partners: [
-        { name: "Daniel Park", avatar: "/placeholder.svg?height=40&width=40" },
-        { name: "Natalie Brown", avatar: "/placeholder.svg?height=40&width=40" },
-      ],
-    },
-    {
-      id: 8,
-      name: "Strategic Investors",
-      logo: "/placeholder.svg?height=80&width=80",
-      description: "Corporate venture capital providing strategic investments",
-      type: "Corporate VC",
-      investmentRange: "$2M - $15M",
-      location: "Chicago, IL",
-      interests: ["Enterprise", "B2B SaaS", "Industry 4.0"],
-      partners: [
-        { name: "Christopher Lee", avatar: "/placeholder.svg?height=40&width=40" },
-        { name: "Rachel Garcia", avatar: "/placeholder.svg?height=40&width=40" },
-      ],
-    },
-  ]
+  interface investor {
+    id: number,
+    name: string,
+    avatar: string,
+    logo: string,
+    description: string,
+    type: string,
+    investmentRange: string,
+    location: string,
+    interests: string[],
+    partners: { name: string, avatar: string }[]
+  }
+
+  const [investors, setInvestors] = useState<investor[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedType, setSelectedType] = useState("all")
+  const [selectedInvestmentRange, setSelectedInvestmentRange] = useState("all")
+
+  useEffect(() => {
+    const fetchInvestors = async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('investors')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching investors:', error.message)
+      } else {
+        setInvestors(data || [])
+      }
+    }
+
+    fetchInvestors()
+  }, [])
+
+  const filteredInvestors = investors.filter(investor => {
+    const matchesSearch = investor.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesType = selectedType === "all" || investor.type === selectedType
+    const matchesInvestmentRange = selectedInvestmentRange === "all" || investor.investmentRange === selectedInvestmentRange
+    return matchesSearch && matchesType && matchesInvestmentRange
+  })
 
   return (
     <div className="container py-10">
@@ -138,32 +69,38 @@ export default function InvestorsPage() {
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:space-x-4 md:space-y-0">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search investors..." className="pl-8" />
+            <Input
+              type="search"
+              placeholder="Search investors..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
           <div className="flex items-center space-x-2">
-            <Select defaultValue="all">
+            <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="vc">VC Firm</SelectItem>
-                <SelectItem value="angel">Angel Network</SelectItem>
-                <SelectItem value="pe">Private Equity</SelectItem>
-                <SelectItem value="corporate">Corporate VC</SelectItem>
-                <SelectItem value="impact">Impact Fund</SelectItem>
+                <SelectItem value="VC Firm">VC Firm</SelectItem>
+                <SelectItem value="Angel Network">Angel Network</SelectItem>
+                <SelectItem value="Private Equity">Private Equity</SelectItem>
+                <SelectItem value="Corporate VC">Corporate VC</SelectItem>
+                <SelectItem value="Impact Fund">Impact Fund</SelectItem>
               </SelectContent>
             </Select>
-            <Select defaultValue="all">
+            <Select value={selectedInvestmentRange} onValueChange={setSelectedInvestmentRange}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Investment Range" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Ranges</SelectItem>
-                <SelectItem value="seed">$50K - $500K</SelectItem>
-                <SelectItem value="early">$500K - $5M</SelectItem>
-                <SelectItem value="growth">$5M - $20M</SelectItem>
-                <SelectItem value="late">$20M+</SelectItem>
+                <SelectItem value="$50K - $500K">$50K - $500K</SelectItem>
+                <SelectItem value="$500K - $5M">$500K - $5M</SelectItem>
+                <SelectItem value="$5M - $20M">$5M - $20M</SelectItem>
+                <SelectItem value="$20M+">$20M+</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon">
@@ -175,7 +112,7 @@ export default function InvestorsPage() {
 
         {/* Investors Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {investors.map((investor) => (
+          {filteredInvestors.map((investor) => (
             <Card key={investor.id} className="overflow-hidden">
               <CardHeader className="p-0">
                 <div className="bg-muted/50 p-6">
@@ -220,7 +157,7 @@ export default function InvestorsPage() {
                           <AvatarFallback>
                             {partner.name
                               .split(" ")
-                              .map((n) => n[0])
+                              .map((n: string) => n[0])
                               .join("")}
                           </AvatarFallback>
                         </Avatar>
