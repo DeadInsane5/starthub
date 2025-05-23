@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,98 +23,61 @@ import {
   Search,
   Users,
 } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+interface Author {
+  name: string
+  avatar: string
+  title: string
+  company: string
+}
+
+interface Post {
+  id: string
+  author: Author
+  content: string
+  image: string | null
+  time: string
+  likes: number
+  comments: number
+  shares: number
+  tags: string[]
+}
 
 export default function CommunityPage() {
+  const [posts, setPosts] = useState<Post[]>([])
   const [newPost, setNewPost] = useState("")
   const [isPosting, setIsPosting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTag, setSelectedTag] = useState("all")
 
-  // Mock data for posts
-  const posts = [
-    {
-      id: 1,
-      author: {
-        name: "John Doe",
-        avatar: "/placeholder.svg?height=40&width=40",
-        title: "Startup Founder",
-        company: "TechInnovate",
-      },
-      content:
-        "Just closed our seed round of $1.5M! Looking for talented engineers to join our team. We're building an AI-powered analytics platform for business intelligence. DM me if interested!",
-      image: "/placeholder.svg?height=300&width=600",
-      time: "2 hours ago",
-      likes: 42,
-      comments: 12,
-      shares: 5,
-      tags: ["Funding", "Hiring", "AI"],
-    },
-    {
-      id: 2,
-      author: {
-        name: "Sarah Johnson",
-        avatar: "/placeholder.svg?height=40&width=40",
-        title: "VC Partner",
-        company: "Venture Capital Partners",
-      },
-      content:
-        "We're hosting a pitch event next month for early-stage startups in the HealthTech space. If you're working on innovative solutions in healthcare, apply through the link below!",
-      time: "5 hours ago",
-      likes: 28,
-      comments: 8,
-      shares: 15,
-      tags: ["HealthTech", "Funding", "Event"],
-    },
-    {
-      id: 3,
-      author: {
-        name: "Michael Chen",
-        avatar: "/placeholder.svg?height=40&width=40",
-        title: "Product Manager",
-        company: "GreenEnergy",
-      },
-      content:
-        "Just published our case study on how we reduced customer acquisition costs by 60% using content marketing. Check it out and let me know your thoughts!",
-      image: "/placeholder.svg?height=300&width=600",
-      time: "8 hours ago",
-      likes: 35,
-      comments: 6,
-      shares: 10,
-      tags: ["Marketing", "Growth", "CaseStudy"],
-    },
-    {
-      id: 4,
-      author: {
-        name: "Emily Rodriguez",
-        avatar: "/placeholder.svg?height=40&width=40",
-        title: "Startup Advisor",
-        company: "StartupMentors",
-      },
-      content:
-        "What's the biggest challenge you're facing with your startup right now? I'm hosting a free Q&A session this Friday to help founders overcome common obstacles.",
-      time: "12 hours ago",
-      likes: 19,
-      comments: 24,
-      shares: 3,
-      tags: ["Advice", "Mentorship", "Q&A"],
-    },
-    {
-      id: 5,
-      author: {
-        name: "David Wilson",
-        avatar: "/placeholder.svg?height=40&width=40",
-        title: "Angel Investor",
-        company: "Tech Angels Network",
-      },
-      content:
-        "Looking to invest in pre-seed B2B SaaS startups with a focus on productivity tools. If that's you, send me your pitch deck!",
-      time: "1 day ago",
-      likes: 56,
-      comments: 18,
-      shares: 12,
-      tags: ["Investing", "B2B", "SaaS"],
-    },
-  ]
+  useEffect(() => {
+    const fetchPosts = async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-  // Handle post submission
+      if (error) {
+        console.error('Error fetching posts:', error.message)
+      } else {
+        setPosts(data || [])
+      }
+    }
+
+    fetchPosts()
+  }, [])
+
+  const allTags = Array.from(new Set(posts.flatMap(post => post.tags))).sort()
+
+  const filteredPosts = posts.filter(post => {
+    const matchesSearch = post.content.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesTag = selectedTag === "all" || post.tags.includes(selectedTag)
+    return matchesSearch && matchesTag
+  })
+
   const handlePostSubmit = () => {
     if (!newPost.trim()) return
 
@@ -146,7 +109,26 @@ export default function CommunityPage() {
               <CardContent className="p-0">
                 <div className="relative px-4 py-2">
                   <Search className="absolute left-6 top-4 h-4 w-4 text-muted-foreground" />
-                  <Input type="search" placeholder="Search discussions..." className="pl-8" />
+                  <Input
+                    type="search"
+                    placeholder="Search discussions..."
+                    className="pl-8"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div className="px-4 py-2">
+                  <Select value={selectedTag} onValueChange={setSelectedTag}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Filter by Tag" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tags</SelectItem>
+                      {allTags.map(tag => (
+                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <nav className="flex flex-col space-y-1 p-2">
                   <Button variant="ghost" className="justify-start">
@@ -165,8 +147,13 @@ export default function CommunityPage() {
                 <div className="px-4 py-2">
                   <h3 className="mb-2 text-sm font-medium">Popular Tags</h3>
                   <div className="flex flex-wrap gap-2">
-                    {["Funding", "Marketing", "Product", "Hiring", "Growth", "AI", "SaaS"].map((tag) => (
-                      <Badge key={tag} variant="secondary" className="cursor-pointer">
+                    {allTags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className="cursor-pointer"
+                        onClick={() => setSelectedTag(tag)}
+                      >
                         {tag}
                       </Badge>
                     ))}
@@ -230,7 +217,7 @@ export default function CommunityPage() {
               </div>
 
               <TabsContent value="all" className="mt-6 space-y-6">
-                {posts.map((post) => (
+                {filteredPosts.map((post) => (
                   <Card key={post.id}>
                     <CardHeader className="p-4 pb-0">
                       <div className="flex justify-between">
@@ -276,7 +263,7 @@ export default function CommunityPage() {
                       {post.image && (
                         <div className="relative mb-4 aspect-video overflow-hidden rounded-lg">
                           <Image
-                            src={post.image || "/placeholder.svg"}
+                            src={post.image}
                             alt="Post image"
                             fill
                             className="object-cover"
@@ -329,7 +316,7 @@ export default function CommunityPage() {
               </TabsContent>
               <TabsContent value="trending" className="mt-6">
                 <div className="space-y-6">
-                  {posts
+                  {filteredPosts
                     .sort((a, b) => b.likes - a.likes)
                     .slice(0, 3)
                     .map((post) => (
@@ -378,7 +365,7 @@ export default function CommunityPage() {
                           {post.image && (
                             <div className="relative mb-4 aspect-video overflow-hidden rounded-lg">
                               <Image
-                                src={post.image || "/placeholder.svg"}
+                                src={post.image}
                                 alt="Post image"
                                 fill
                                 className="object-cover"
