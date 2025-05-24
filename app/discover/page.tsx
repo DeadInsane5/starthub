@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -151,10 +152,12 @@ export default function DiscoverPage() {
                   <Button variant="ghost" size="sm">
                     Save
                   </Button>
-                  <Button size="sm" className="gap-1">
-                    View Profile
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Button>
+                  <Link href={`/discover/${startup.id}`}>
+                    <Button size="sm" className="gap-1">
+                      View Profile
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
                 </div>
               </CardFooter>
             </Card>
