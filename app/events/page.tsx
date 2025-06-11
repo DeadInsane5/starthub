@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -223,10 +224,12 @@ export default function EventsPage() {
                   <CardFooter className="border-t p-4">
                     <div className="flex w-full items-center justify-between">
                       <div className="text-xs text-muted-foreground">By {event.organizer}</div>
+                    <Link href={`/events/${event.id}`}>
                       <Button size="sm" className="gap-1">
                         Details
                         <ArrowUpRight className="h-3 w-3" />
                       </Button>
+                    </Link>
                     </div>
                   </CardFooter>
                 </Card>

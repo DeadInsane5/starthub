@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -294,9 +295,11 @@ export default function CommunityPage() {
                             <span>{post.shares}</span>
                           </Button>
                         </div>
+                        <Link href={`/community/${post.id}`}>
                         <Button variant="ghost" size="sm">
                           View Discussion
                         </Button>
+                        </Link>
                       </div>
                     </CardFooter>
                   </Card>
