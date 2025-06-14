@@ -1,19 +1,28 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowRight } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/app/auth-context";
 
 const formSchema = z
   .object({
@@ -27,7 +36,7 @@ const formSchema = z
       message: "Password must be at least 8 characters.",
     }),
     confirmPassword: z.string(),
-    userType: z.string({
+    userType: z.enum(["founder", "business", "investor", "customer"], {
       required_error: "Please select a user type.",
     }),
     terms: z.boolean().refine((val) => val === true, {
@@ -37,13 +46,13 @@ const formSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  })
+  });
 
 export default function SignUpPage() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null)
-  const { toast } = useToast()
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
+  const { session } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,46 +61,76 @@ export default function SignUpPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      userType: undefined,
       terms: false,
     },
-  })
+  });
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (session) {
+      router.push("/");
+    }
+  }, [session, router]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true)
-    setMessage(null)
+    setIsLoading(true);
 
-    const supabase = createClient()
-    const { error: accountError } = await supabase.auth.signUp({
+    const supabase = createClient();
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email: values.email,
       password: values.password,
       options: {
         data: {
           name: values.name,
-          userType: values.userType,
+          user_type: values.userType,
         },
       },
-    })
-    const { error: insertError } = await supabase.from("users").insert({
-      name: values.name,
-      email: values.email,
-      userType: values.userType,
-    })
+    });
 
-    if (accountError || insertError) {
+    if (authError) {
       toast({
         title: "Error creating account",
-        description: "Please try again later.",
+        description: authError.message || "Please try again later.",
         variant: "destructive",
-      })
-    } else {
-      toast({
-        title: "Account created successfully",
-        description: "Check your inbox for confirmation email",
-      })
-      router.push('/')
+      });
+      setIsLoading(false);
+      return;
     }
 
-    setIsLoading(false)
+    // Insert profile data
+    if (authData.user) {
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: authData.user.id,
+        name: values.name,
+        user_type: values.userType,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      if (profileError) {
+        toast({
+          title: "Error creating profile",
+          description: profileError.message || "Please try again later.",
+          variant: "destructive",
+        });
+        // Optionally, delete the auth user if profile creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    toast({
+      title: "Account created successfully",
+      description: "Check your inbox for a confirmation email.",
+    });
+    router.push("/sign-in"); // Redirect to sign-in after sign-up
+    setIsLoading(false);
+  }
+
+  if (session) {
+    return null; // Prevent rendering while redirecting
   }
 
   return (
@@ -204,7 +243,7 @@ export default function SignUpPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading} onClick={() => { }}>
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <div className="flex items-center justify-center">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -219,11 +258,6 @@ export default function SignUpPage() {
               </Button>
             </form>
           </Form>
-          {message && (
-            <div className={`mt-4 text-center text-sm ${message.isError ? 'text-red-500' : 'text-green-500'}`}>
-              {message.text}
-            </div>
-          )}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -233,8 +267,8 @@ export default function SignUpPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline">Google</Button>
-            <Button variant="outline">GitHub</Button>
+            <Button variant="outline" disabled>Google</Button>
+            <Button variant="outline" disabled>GitHub</Button>
           </div>
         </div>
         <p className="px-8 text-center text-sm text-muted-foreground">
@@ -245,5 +279,5 @@ export default function SignUpPage() {
         </p>
       </div>
     </div>
-  )
+  );
 }

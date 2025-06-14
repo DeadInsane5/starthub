@@ -1,19 +1,19 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
-import * as z from "zod"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowRight } from "lucide-react"
-
-import { createClient } from '@/lib/supabase/client'
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowRight } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/app/auth-context";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -23,12 +23,13 @@ const formSchema = z.object({
     message: "Password is required.",
   }),
   rememberMe: z.boolean().optional(),
-})
+});
 
 export default function SignInPage() {
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const router = useRouter()
+  const router = useRouter();
+  const { session } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -37,10 +38,17 @@ export default function SignInPage() {
       password: "",
       rememberMe: false,
     },
-  })
+  });
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (session) {
+      router.push("/");
+    }
+  }, [session, router]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true)
+    setIsLoading(true);
 
     const supabase = createClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -53,15 +61,18 @@ export default function SignInPage() {
         title: "Error signing in",
         description: "Please check email and password, and try again.",
         variant: "destructive",
-      })
+      });
+      setIsLoading(false);
     } else {
       toast({
         title: "Signed in successfully",
-      })
-      router.push('/')
+      });
+      router.push("/");
     }
-    router.push('/')
-    setIsLoading(false)
+  }
+
+  if (session) {
+    return null; // Prevent rendering while redirecting
   }
 
   return (
@@ -146,12 +157,12 @@ export default function SignInPage() {
           </div>
         </div>
         <p className="px-8 text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
+          Don't have an account?{" "}
           <Link href="/sign-up" className="underline underline-offset-4 hover:text-primary">
             Sign up
           </Link>
         </p>
       </div>
     </div>
-  )
+  );
 }
