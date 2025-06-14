@@ -10,6 +10,7 @@ interface AuthContextType {
   profile: { avatar_url?: string; name?: string } | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isLoading: true,
   signOut: async () => {},
+  refreshProfile: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -25,6 +27,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<{ avatar_url?: string; name?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const fetchProfile = async (userId: string) => {
+    const supabase = createClient();
+    const { data: profileData, error } = await supabase
+      .from("profiles")
+      .select("avatar_url, name")
+      .eq("id", userId)
+      .single();
+
+    if (!error && profileData) {
+      setProfile(profileData);
+    }
+  };
 
   useEffect(() => {
     const supabase = createClient();
@@ -36,16 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        // Fetch profile data
-        const { data: profileData, error } = await supabase
-          .from("profiles")
-          .select("avatar_url, name")
-          .eq("id", session.user.id)
-          .single();
-
-        if (!error && profileData) {
-          setProfile(profileData);
-        }
+        await fetchProfile(session.user.id);
       }
       setIsLoading(false);
     };
@@ -58,16 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(newSession?.user ?? null);
 
       if (newSession?.user) {
-        supabase
-          .from("profiles")
-          .select("avatar_url, name")
-          .eq("id", newSession.user.id)
-          .single()
-          .then(({ data, error }) => {
-            if (!error && data) {
-              setProfile(data);
-            }
-          });
+        fetchProfile(newSession.user.id);
       } else {
         setProfile(null);
       }
@@ -86,8 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ session, user, profile, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, isLoading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

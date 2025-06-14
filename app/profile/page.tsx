@@ -81,6 +81,7 @@ const accountFormSchema = z.object({
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile");
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { session, user, profile } = useAuth();
@@ -120,7 +121,7 @@ export default function ProfilePage() {
       const supabase = createClient();
       supabase
         .from("profiles")
-        .select("name, title, bio, location, website, twitter, linkedin, github, user_type")
+        .select("name, title, bio, location, website, twitter, linkedin, github, user_type, avatar_url")
         .eq("id", user.id)
         .single()
         .then(({ data, error }) => {
@@ -143,6 +144,93 @@ export default function ProfilePage() {
         });
     }
   }, [user, session, profileForm, accountForm]);
+
+  async function handleAvatarUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    if (!event.target.files || event.target.files.length === 0 || !user) {
+      toast({
+        title: "No file selected",
+        description: "Please select an image to upload.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const file = event.target.files[0];
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+    const maxSize = 1024 * 1024; // 1MB
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Only JPG, PNG, or GIF files are allowed.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > maxSize) {
+      toast({
+        title: "File too large",
+        description: "Image must be less than 1MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    const supabase = createClient();
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${user.id}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // Upload file to avatars bucket
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, file, {
+        upsert: true,
+        contentType: file.type,
+      });
+
+    if (uploadError) {
+      toast({
+        title: "Error uploading avatar",
+        description: uploadError.message,
+        variant: "destructive",
+      });
+      setIsUploading(false);
+      return;
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(filePath);
+
+    const avatarUrl = publicUrlData.publicUrl;
+
+    // Update profile with avatar URL
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (profileError) {
+      toast({
+        title: "Error updating profile",
+        description: profileError.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Avatar updated successfully",
+      });
+    }
+
+    setIsUploading(false);
+  }
 
   async function onProfileSubmit(values: z.infer<typeof profileFormSchema>) {
     setIsLoading(true);
@@ -344,13 +432,24 @@ export default function ProfilePage() {
                               size="icon"
                               variant="outline"
                               className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
-                              disabled
+                              asChild
+                              disabled={isUploading}
                             >
-                              <Upload className="h-4 w-4" />
-                              <span className="sr-only">Upload profile picture</span>
+                              <label htmlFor="avatar-upload">
+                                <Upload className="h-4 w-4" />
+                                <span className="sr-only">Upload profile picture</span>
+                                <input
+                                  id="avatar-upload"
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/gif"
+                                  className="hidden"
+                                  onChange={handleAvatarUpload}
+                                  disabled={isUploading}
+                                />
+                              </label>
                             </Button>
                           </div>
-                          <p className="text-xs text-muted-foreground">JPG, GIF or PNG. 1MB max. (Upload disabled)</p>
+                          <p className="text-xs text-muted-foreground">JPG, PNG, or GIF. 1MB max.</p>
                         </div>
                         <FormField
                           control={profileForm.control}
@@ -469,7 +568,7 @@ export default function ProfilePage() {
                           />
                         </div>
                       </div>
-                      <Button type="submit" disabled={isLoading}>
+                      <Button type="submit" disabled={isLoading || isUploading}>
                         {isLoading ? (
                           <div className="flex items-center">
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -531,7 +630,7 @@ export default function ProfilePage() {
                           )}
                         />
                       </div>
-                      <Button type="submit" disabled={isLoading}>
+                      <Button type="submit" disabled={isLoading || isUploading}>
                         {isLoading ? (
                           <div className="flex items-center">
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
