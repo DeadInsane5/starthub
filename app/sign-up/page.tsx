@@ -251,7 +251,7 @@ export default function SignUpPage() {
                   <FormItem>
                     <FormLabel>Full Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -264,7 +264,7 @@ export default function SignUpPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="john.doe@example.com" {...field} />
+                      <Input" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

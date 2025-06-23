@@ -92,7 +92,7 @@ export default function SignInPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="john.doe@example.com" {...field} />
+                      <Input" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
