@@ -1,16 +1,16 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   MessageSquare,
   Heart,
@@ -23,72 +23,122 @@ import {
   Flag,
   Search,
   Users,
-} from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Author {
-  name: string
-  avatar: string
-  title: string
-  company: string
+  name: string;
+  avatar: string;
+  title: string;
+  company: string;
 }
 
 interface Post {
-  id: string
-  author: Author
-  content: string
-  image: string | null
-  time: string
-  likes: number
-  comments: number
-  shares: number
-  tags: string[]
+  id: string;
+  author: Author;
+  content: string;
+  image: string | null;
+  time: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  tags: string[];
 }
 
 export default function CommunityPage() {
-  const [posts, setPosts] = useState<Post[]>([])
-  const [newPost, setNewPost] = useState("")
-  const [isPosting, setIsPosting] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedTag, setSelectedTag] = useState("all")
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [newPost, setNewPost] = useState("");
+  const [newTags, setNewTags] = useState("");
+  const [isPosting, setIsPosting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTag, setSelectedTag] = useState("all");
 
   useEffect(() => {
     const fetchPosts = async () => {
-      const supabase = createClient()
+      const supabase = createClient();
       const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .from("posts")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching posts:', error.message)
+        console.error("Error fetching posts:", error.message);
       } else {
-        setPosts(data || [])
+        setPosts(data || []);
       }
+    };
+
+    fetchPosts();
+  }, []);
+
+  const allTags = Array.from(new Set(posts.flatMap((post) => post.tags))).sort();
+
+  const filteredPosts = posts.filter((post) => {
+    const matchesSearch = post.content.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTag = selectedTag === "all" || post.tags.includes(selectedTag);
+    return matchesSearch && matchesTag;
+  });
+
+  const handlePostSubmit = async () => {
+    if (!newPost.trim()) return;
+
+    setIsPosting(true);
+    const supabase = createClient();
+
+    // Get authenticated user (if available)
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    let author: Author;
+    if (userError || !userData.user) {
+      // Use default author if not authenticated
+      author = {
+        name: "Anonymous User",
+        avatar: "/placeholder.svg?height=40&width=40",
+        title: "Community Member",
+        company: "N/A",
+      };
+    } else {
+      // Use user data (customize based on your auth setup)
+      author = {
+        name: userData.user.user_metadata?.name || "Anonymous User",
+        avatar: userData.user.user_metadata?.avatar || "/placeholder.svg?height=40&width=40",
+        title: userData.user.user_metadata?.title || "Community Member",
+        company: userData.user.user_metadata?.company || "N/A",
+      };
     }
 
-    fetchPosts()
-  }, [])
+    // Parse tags from comma-separated input
+    const tagsArray = newTags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
 
-  const allTags = Array.from(new Set(posts.flatMap(post => post.tags))).sort()
+    const { data, error } = await supabase
+      .from("posts")
+      .insert([
+        {
+          author,
+          content: newPost,
+          image: "/placeholder.svg?height=300&width=600",
+          time: "Just now",
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          tags: tagsArray,
+        },
+      ])
+      .select();
 
-  const filteredPosts = posts.filter(post => {
-    const matchesSearch = post.content.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTag = selectedTag === "all" || post.tags.includes(selectedTag)
-    return matchesSearch && matchesTag
-  })
-
-  const handlePostSubmit = () => {
-    if (!newPost.trim()) return
-
-    setIsPosting(true)
-    // This would normally be a server action or API call
-    setTimeout(() => {
-      setNewPost("")
-      setIsPosting(false)
-    }, 1000)
-  }
+    if (error) {
+      console.error("Error creating post:", error.message);
+      setIsPosting(false);
+    } else {
+      setPosts([data[0], ...posts]);
+      setNewPost("");
+      setNewTags("");
+      setIsPosting(false);
+    }
+  };
 
   return (
     <div className="container py-10">
@@ -125,8 +175,10 @@ export default function CommunityPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Tags</SelectItem>
-                      {allTags.map(tag => (
-                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                      {allTags.map((tag) => (
+                        <SelectItem key={tag} value={tag}>
+                          {tag}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -171,20 +223,27 @@ export default function CommunityPage() {
                 <CardTitle>Create Post</CardTitle>
                 <CardDescription>Share updates, ask questions, or start a discussion</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <Textarea
                   placeholder="What's on your mind?"
                   className="min-h-[100px] resize-none"
                   value={newPost}
                   onChange={(e) => setNewPost(e.target.value)}
                 />
+                <div>
+                  <Input
+                    placeholder="Add tags (comma-separated, e.g., Funding, AI)"
+                    value={newTags}
+                    onChange={(e) => setNewTags(e.target.value)}
+                  />
+                </div>
               </CardContent>
               <CardFooter className="flex justify-between">
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled>
                     Add Image
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled>
                     Add Tags
                   </Button>
                 </div>
@@ -296,9 +355,9 @@ export default function CommunityPage() {
                           </Button>
                         </div>
                         <Link href={`/community/${post.id}`}>
-                        <Button variant="ghost" size="sm">
-                          View Discussion
-                        </Button>
+                          <Button variant="ghost" size="sm">
+                            View Discussion
+                          </Button>
                         </Link>
                       </div>
                     </CardFooter>
@@ -413,5 +472,5 @@ export default function CommunityPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
