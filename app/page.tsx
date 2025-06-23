@@ -36,7 +36,7 @@ export default function Home() {
             </div>
             <div className="mx-auto lg:ml-auto">
               <Image
-                src="/placeholder.svg?height=550&width=550"
+                src="/hero-image.jpg?height=550&width=550"
                 width={550}
                 height={550}
                 alt="StartHub Platform"
@@ -98,7 +98,7 @@ export default function Home() {
           <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 items-center">
             <div className="mx-auto lg:order-last">
               <Image
-                src="/placeholder.svg?height=400&width=500"
+                src="/community-image.jpg?height=400&width=500"
                 width={500}
                 height={400}
                 alt="StartHub Community"
@@ -159,7 +159,7 @@ export default function Home() {
               <div key={i} className="flex flex-col overflow-hidden rounded-lg border shadow-sm">
                 <div className="relative aspect-video">
                   <Image
-                    src={`/placeholder.svg?height=200&width=400&text=Event+${i}`}
+                    src={`/coming-soon-events.jpg?height=200&width=400&text=Event+${i}`}
                     fill
                     alt={`Event ${i}`}
                     className="object-cover"
