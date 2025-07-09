@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, ArrowUpRight, Clock, BookOpen, Video, FileText, Plus } from "lucide-react"
+import { Search, Filter, ArrowUpRight, Clock, BookOpen, Video, FileText, Plus, Upload } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface Resource {
   id: string;
@@ -36,6 +38,9 @@ export default function ResourcesPage() {
   const [selectedType, setSelectedType] = useState("all")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [imageUrl, setImageUrl] = useState<string>("/placeholder.svg?height=200&width=400")
+  const { toast } = useToast()
   const [newResource, setNewResource] = useState({
     title: "",
     description: "",
@@ -65,6 +70,72 @@ export default function ResourcesPage() {
     fetchResources()
   }, [])
 
+  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    if (!event.target.files || event.target.files.length === 0) {
+      toast({
+        title: "No file selected",
+        description: "Please select an image to upload.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const file = event.target.files[0]
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif"]
+    const maxSize = 1024 * 1024 // 1MB
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Only JPG, PNG, or GIF files are allowed.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (file.size > maxSize) {
+      toast({
+        title: "File too large",
+        description: "Image must be less than 1MB.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsUploading(true)
+    const supabase = createClient()
+    const fileExt = file.name.split(".").pop()
+    const fileName = `${Date.now()}.${fileExt}`
+    const filePath = `resources/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from("logos")
+      .upload(filePath, file, {
+        upsert: true,
+        contentType: file.type,
+      })
+
+    if (uploadError) {
+      toast({
+        title: "Error uploading image",
+        description: uploadError.message,
+        variant: "destructive",
+      })
+      setIsUploading(false)
+      return
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("logos")
+      .getPublicUrl(filePath)
+
+    setImageUrl(publicUrlData.publicUrl)
+    setIsUploading(false)
+    toast({
+      title: "Image uploaded successfully",
+    })
+  }
+
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const supabase = createClient()
@@ -73,7 +144,7 @@ export default function ResourcesPage() {
       .from('resources')
       .insert([{
         title: newResource.title,
-        image: '/placeholder.svg?height=200&width=400',
+        image: imageUrl,
         description: newResource.description,
         type: newResource.type,
         category: newResource.category,
@@ -86,6 +157,11 @@ export default function ResourcesPage() {
 
     if (error) {
       console.error('Error creating resource:', error.message)
+      toast({
+        title: "Error creating resource",
+        description: error.message,
+        variant: "destructive",
+      })
     } else {
       setResources([data[0], ...resources])
       setIsCreateOpen(false)
@@ -98,6 +174,10 @@ export default function ResourcesPage() {
         author: "",
         date: "",
         content_url: ""
+      })
+      setImageUrl("/placeholder.svg?height=200&width=400")
+      toast({
+        title: "Resource created successfully",
       })
     }
   }
@@ -145,6 +225,35 @@ export default function ResourcesPage() {
                 </DialogHeader>
                 <form onSubmit={handleCreateSubmit} className="space-y-6">
                   <div className="grid gap-4">
+                    <div className="flex flex-col items-center space-y-2">
+                      <div className="relative">
+                        <Avatar className="h-24 w-24">
+                          <AvatarImage src={imageUrl} alt="Resource Thumbnail" />
+                          <AvatarFallback>RT</AvatarFallback>
+                        </Avatar>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
+                          asChild
+                          disabled={isUploading}
+                        >
+                          <label htmlFor="image-upload">
+                            <Upload className="h-4 w-4" />
+                            <span className="sr-only">Upload resource thumbnail</span>
+                            <input
+                              id="image-upload"
+                              type="file"
+                              accept="image/jpeg,image/png,image/gif"
+                              className="hidden"
+                              onChange={handleImageUpload}
+                              disabled={isUploading}
+                            />
+                          </label>
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">JPG, PNG, or GIF. 1MB max.</p>
+                    </div>
                     <div>
                       <Label htmlFor="title">Title</Label>
                       <Input
@@ -245,10 +354,17 @@ export default function ResourcesPage() {
                     </div>
                   </div>
                   <div className="flex justify-end space-x-2">
-                    <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsCreateOpen(false)
+                        setImageUrl("/placeholder.svg?height=200&width=400")
+                      }}
+                    >
                       Cancel
                     </Button>
-                    <Button type="submit">Create</Button>
+                    <Button type="submit" disabled={isUploading}>Create</Button>
                   </div>
                 </form>
               </DialogContent>

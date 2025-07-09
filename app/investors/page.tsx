@@ -9,11 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Filter, ArrowUpRight, Plus, Trash2 } from "lucide-react"
+import { Search, Filter, ArrowUpRight, Plus, Trash2, Upload } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
 
 interface Investor {
   id: string;
@@ -40,6 +41,9 @@ export default function InvestorsPage() {
   const [selectedType, setSelectedType] = useState("all")
   const [selectedInvestmentRange, setSelectedInvestmentRange] = useState("all")
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [logoUrl, setLogoUrl] = useState<string>("/placeholder.svg?height=80&width=80")
+  const { toast } = useToast()
   const [newInvestor, setNewInvestor] = useState({
     name: "",
     description: "",
@@ -82,6 +86,72 @@ export default function InvestorsPage() {
     setPartners(updatedPartners)
   }
 
+  async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    if (!event.target.files || event.target.files.length === 0) {
+      toast({
+        title: "No file selected",
+        description: "Please select an image to upload.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const file = event.target.files[0]
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif"]
+    const maxSize = 1024 * 1024 // 1MB
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Only JPG, PNG, or GIF files are allowed.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (file.size > maxSize) {
+      toast({
+        title: "File too large",
+        description: "Image must be less than 1MB.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsUploading(true)
+    const supabase = createClient()
+    const fileExt = file.name.split(".").pop()
+    const fileName = `${Date.now()}.${fileExt}`
+    const filePath = `investors/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from("logos")
+      .upload(filePath, file, {
+        upsert: true,
+        contentType: file.type,
+      })
+
+    if (uploadError) {
+      toast({
+        title: "Error uploading logo",
+        description: uploadError.message,
+        variant: "destructive",
+      })
+      setIsUploading(false)
+      return
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("logos")
+      .getPublicUrl(filePath)
+
+    setLogoUrl(publicUrlData.publicUrl)
+    setIsUploading(false)
+    toast({
+      title: "Logo uploaded successfully",
+    })
+  }
+
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const supabase = createClient()
@@ -99,7 +169,7 @@ export default function InvestorsPage() {
       .from('investors')
       .insert([{
         name: newInvestor.name,
-        logo: '/placeholder.svg?height=80&width=80',
+        logo: logoUrl,
         description: newInvestor.description,
         type: newInvestor.type,
         investmentRange: newInvestor.investmentRange,
@@ -111,6 +181,11 @@ export default function InvestorsPage() {
 
     if (error) {
       console.error('Error registering investor:', error.message)
+      toast({
+        title: "Error registering investor",
+        description: error.message,
+        variant: "destructive",
+      })
     } else {
       setInvestors([data[0], ...investors])
       setIsRegisterOpen(false)
@@ -123,6 +198,10 @@ export default function InvestorsPage() {
         interests: ""
       })
       setPartners([{ name: "" }])
+      setLogoUrl("/placeholder.svg?height=80&width=80")
+      toast({
+        title: "Investor registered successfully",
+      })
     }
   }
 
@@ -152,6 +231,35 @@ export default function InvestorsPage() {
                 </DialogHeader>
                 <form onSubmit={handleRegisterSubmit} className="space-y-6">
                   <div className="grid gap-4">
+                    <div className="flex flex-col items-center space-y-2">
+                      <div className="relative">
+                        <Avatar className="h-24 w-24">
+                          <AvatarImage src={logoUrl} alt="Investor Logo" />
+                          <AvatarFallback>IL</AvatarFallback>
+                        </Avatar>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
+                          asChild
+                          disabled={isUploading}
+                        >
+                          <label htmlFor="logo-upload">
+                            <Upload className="h-4 w-4" />
+                            <span className="sr-only">Upload investor logo</span>
+                            <input
+                              id="logo-upload"
+                              type="file"
+                              accept="image/jpeg,image/png,image/gif"
+                              className="hidden"
+                              onChange={handleLogoUpload}
+                              disabled={isUploading}
+                            />
+                          </label>
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">JPG, PNG, or GIF. 1MB max.</p>
+                    </div>
                     <div>
                       <Label htmlFor="name">Name</Label>
                       <Input
@@ -267,13 +375,18 @@ export default function InvestorsPage() {
                     </div>
                   </div>
                   <div className="flex justify-end space-x-2">
-                    <Button type="button" variant="outline" onClick={() => {
-                      setIsRegisterOpen(false)
-                      setPartners([{ name: "" }])
-                    }}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsRegisterOpen(false)
+                        setPartners([{ name: "" }])
+                        setLogoUrl("/placeholder.svg?height=80&width=80")
+                      }}
+                    >
                       Cancel
                     </Button>
-                    <Button type="submit">Register</Button>
+                    <Button type="submit" disabled={isUploading}>Register</Button>
                   </div>
                 </form>
               </DialogContent>
